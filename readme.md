@@ -39,7 +39,7 @@ msg.payload = {
     nivelActual: 0.5,
     nivelReinicio: 0.8
 };
-
+```
 ** Example Flow JSON**
 ```json
 [
@@ -105,3 +105,4 @@ msg.payload = {
         "wires": []
     }
 ]
+```
