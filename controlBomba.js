@@ -59,10 +59,6 @@ module.exports = function (RED) {
                 estado.bomba = true;
             }
 
-            if (!estadoBomba) {
-                estado.bomba = false;
-            }
-
             if (estado.bomba) {
                 estado.tiempoEncendido += 3000;
 
