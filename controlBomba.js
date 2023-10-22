@@ -23,6 +23,10 @@ module.exports = function (RED) {
             const presion = parseFloat(msg.payload.presion);
             const reset = Boolean(msg.payload.reset);
 
+            console.log(`Presión actual: ${presion}, Reset: ${reset}`);
+            console.log(`Estado inicial: ${JSON.stringify(estadoInicial)}`);
+            console.log(`Estado actual: ${JSON.stringify(estado)}`);
+
             if (reset) {
                 estado = Object.assign({}, estadoInicial);
             }
@@ -33,12 +37,15 @@ module.exports = function (RED) {
                 return;
             }
 
-            if (presion >= configNodo.presionMinima && presion <= configNodo.presionMaxima) {
+            if (presion <= configNodo.presionMaxima) {
                 estado.tiempoUltimaPresionValida = 0;
                 estado.bomba = true;
             } else {
                 estado.tiempoUltimaPresionValida += 3000;
             }
+
+
+            console.log(`Tiempo desde la última presión válida: ${estado.tiempoUltimaPresionValida}`);
 
             if (estado.tiempoUltimaPresionValida >= configNodo.tiempoRebote) {
                 estado.bomba = false;
@@ -46,6 +53,7 @@ module.exports = function (RED) {
 
             if (estado.bomba) {
                 estado.tiempoEncendido += 3000;
+                console.log(`Tiempo encendido de la bomba: ${estado.tiempoEncendido}`);
 
                 if (estado.tiempoEncendido >= configNodo.tiempoMaximoBomba && presion < 1.5) {
                     estado.bomba = false;
