@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-controlbomba",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Water pump control with tank level secure function",
   "main": "controlBomba.js",
   "scripts": {
@@ -8,6 +8,10 @@
   },
   "author": "Diego Serrano",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/diegoserranobst/controlbomba.git"
+  },
   "node-red": {
     "nodes": {
       "controlBomba": "./controlBomba.js"
