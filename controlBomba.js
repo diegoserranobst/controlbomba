@@ -6,7 +6,8 @@ module.exports = function (RED) {
             bomba: false,
             tiempoEncendido: 0,
             tiempoUltimaPresionValida: 0,
-            excedido: false
+            excedido: false,
+            estadoProceso: "Inactivo"
         };
 
         const configNodo = {
@@ -23,22 +24,38 @@ module.exports = function (RED) {
             const presion = parseFloat(msg.payload.presion);
             const reset = Boolean(msg.payload.reset);
             const estadoBomba = Boolean(msg.payload.estadoBomba);
-            const vacio = Boolean(msg.payload.vacio);
             const automatico = Boolean(msg.payload.automatico);
             const manual = Boolean(msg.payload.manual);
+            const nivelVacio = parseFloat(msg.payload.nivelVacio);
+            const nivelActual = parseFloat(msg.payload.nivelActual);
+            const nivelReinicio = parseFloat(msg.payload.nivelReinicio);
 
             if (reset) {
                 estado = Object.assign({}, estadoInicial);
             }
 
-            if (vacio) {
+            if (isNaN(nivelActual)) {
                 estado.bomba = false;
+                estado.estadoProceso = "Nivel actual no disponible";
                 msg.payload.estado = estado;
                 this.send(msg);
                 return;
             }
 
+            if (nivelActual <= nivelVacio) {
+                estado.bomba = false;
+                estado.estadoProceso = "Nivel de vacío alcanzado";
+                msg.payload.estado = estado;
+                this.send(msg);
+                return;
+            }
+
+            if (nivelActual >= nivelReinicio) {
+                estado.estadoProceso = "Nivel de reinicio alcanzado, funcionamiento normal";
+            }
+
             if (estado.excedido) {
+                estado.estadoProceso = "Tiempo excedido";
                 msg.payload.estado = estado;
                 this.send(msg);
                 return;
@@ -48,17 +65,21 @@ module.exports = function (RED) {
                 if (presion <= configNodo.presionMaxima) {
                     estado.tiempoUltimaPresionValida = 0;
                     estado.bomba = true;
+                    estado.estadoProceso = "Automático: ON";
                 } else {
                     estado.tiempoUltimaPresionValida += 3000;
                 }
 
                 if (estado.tiempoUltimaPresionValida >= configNodo.tiempoRebote) {
                     estado.bomba = false;
+                    estado.estadoProceso = "Automático: OFF por rebote";
                 }
             } else if (manual) {
                 estado.bomba = true;
+                estado.estadoProceso = "Manual: ON";
             } else {
                 estado.bomba = false;
+                estado.estadoProceso = "Manual: OFF";
             }
 
             if (estado.bomba) {
@@ -67,11 +88,13 @@ module.exports = function (RED) {
                 if (estado.tiempoEncendido >= configNodo.tiempoMaximoBomba && presion < 1.5) {
                     estado.bomba = false;
                     estado.tiempoEncendido = 0;
+                    estado.estadoProceso = "Tiempo máximo alcanzado, bomba apagada";
                 }
 
                 if (estado.tiempoEncendido >= configNodo.tiempoExcedido) {
                     estado.bomba = false;
                     estado.excedido = true;
+                    estado.estadoProceso = "Tiempo excedido";
                 }
             } else {
                 estado.tiempoEncendido = 0;
