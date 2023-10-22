@@ -55,8 +55,12 @@ module.exports = function (RED) {
                 if (estado.tiempoUltimaPresionValida >= configNodo.tiempoRebote) {
                     estado.bomba = false;
                 }
-            } else if (manual) {
-                estado.bomba = estadoBomba;
+            } else if (manual && !automatico) {
+                estado.bomba = true;
+            }
+
+            if (!estadoBomba) {
+                estado.bomba = false;
             }
 
             if (estado.bomba) {
