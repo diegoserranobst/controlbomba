@@ -1,0 +1,63 @@
+[
+    {
+        "id": "1bb46f2f.55fba1",
+        "type": "tab",
+        "label": "Flujo de prueba para controlBomba",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "c74e682d.6c9ab8",
+        "type": "inject",
+        "z": "1bb46f2f.55fba1",
+        "name": "Simulación de presión y niveles",
+        "props": [
+            {
+                "p": "payload",
+                "v": "{\"presion\": 2.5, \"reset\": false, \"estadoBomba\": true, \"vacio\": false, \"automatico\": true, \"manual\": false, \"nivelVacio\": 0.2, \"nivelActual\": 0.5, \"nivelReinicio\": 0.8}",
+                "vt": "json"
+            }
+        ],
+        "repeat": "3",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 270,
+        "y": 120,
+        "wires": [
+            [
+                "a0452b5b.82d7a8"
+            ]
+        ]
+    },
+    {
+        "id": "a0452b5b.82d7a8",
+        "type": "controlBomba",
+        "z": "1bb46f2f.55fba1",
+        "name": "",
+        "x": 550,
+        "y": 120,
+        "wires": [
+            [
+                "f1d891fa.2d9ca"
+            ]
+        ]
+    },
+    {
+        "id": "f1d891fa.2d9ca",
+        "type": "debug",
+        "z": "1bb46f2f.55fba1",
+        "name": "",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 770,
+        "y": 120,
+        "wires": []
+    }
+]
