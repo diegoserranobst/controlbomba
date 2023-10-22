@@ -22,13 +22,20 @@ module.exports = function (RED) {
         this.on('input', (msg) => {
             const presion = parseFloat(msg.payload.presion);
             const reset = Boolean(msg.payload.reset);
-
-            console.log(`Presión actual: ${presion}, Reset: ${reset}`);
-            console.log(`Estado inicial: ${JSON.stringify(estadoInicial)}`);
-            console.log(`Estado actual: ${JSON.stringify(estado)}`);
+            const estadoBomba = Boolean(msg.payload.estadoBomba);
+            const vacio = Boolean(msg.payload.vacio);
+            const automatico = Boolean(msg.payload.automatico);
+            const manual = Boolean(msg.payload.manual);
 
             if (reset) {
                 estado = Object.assign({}, estadoInicial);
+            }
+
+            if (vacio) {
+                estado.bomba = false;
+                msg.payload.estado = estado;
+                this.send(msg);
+                return;
             }
 
             if (estado.excedido) {
@@ -37,23 +44,23 @@ module.exports = function (RED) {
                 return;
             }
 
-            if (presion <= configNodo.presionMaxima) {
-                estado.tiempoUltimaPresionValida = 0;
-                estado.bomba = true;
-            } else {
-                estado.tiempoUltimaPresionValida += 3000;
-            }
+            if (automatico) {
+                if (presion <= configNodo.presionMaxima) {
+                    estado.tiempoUltimaPresionValida = 0;
+                    estado.bomba = true;
+                } else {
+                    estado.tiempoUltimaPresionValida += 3000;
+                }
 
-
-            console.log(`Tiempo desde la última presión válida: ${estado.tiempoUltimaPresionValida}`);
-
-            if (estado.tiempoUltimaPresionValida >= configNodo.tiempoRebote) {
-                estado.bomba = false;
+                if (estado.tiempoUltimaPresionValida >= configNodo.tiempoRebote) {
+                    estado.bomba = false;
+                }
+            } else if (manual) {
+                estado.bomba = estadoBomba;
             }
 
             if (estado.bomba) {
                 estado.tiempoEncendido += 3000;
-                console.log(`Tiempo encendido de la bomba: ${estado.tiempoEncendido}`);
 
                 if (estado.tiempoEncendido >= configNodo.tiempoMaximoBomba && presion < 1.5) {
                     estado.bomba = false;
