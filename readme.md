@@ -40,7 +40,7 @@ msg.payload = {
     nivelReinicio: 0.8
 };
 ```
-** Example Flow JSON**
+**Example Flow JSON**
 ```json
 [
     {
