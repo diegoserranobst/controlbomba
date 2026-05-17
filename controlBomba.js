@@ -29,7 +29,11 @@ module.exports = function (RED) {
 
             tiempoMaximoBomba: 3600000,
             nanMaxConsecutivos: 5,
-            timeoutComunicacion: 120000
+            timeoutComunicacion: 120000,
+
+            alphaRapida: 0.3,
+            alphaLenta: 0.05,
+            umbralTendencia: -0.04
         };
 
         let estado = {
@@ -49,7 +53,9 @@ module.exports = function (RED) {
             stableLongCount: 0,
             nanConsecutivos: 0,
             idleCount: 0,
-            pisoCount: 0
+            pisoCount: 0,
+            emaRapida: null,
+            emaLenta: null
         };
 
         function calcularVarianza(arr) {
@@ -185,7 +191,17 @@ module.exports = function (RED) {
                 estado.estadoProceso = "Sin consumo detectado; estabilizando";
                 signal.declineCount = 0;
                 signal.pisoCount = 0;
+                signal.emaRapida = presion;
+                signal.emaLenta = presion;
                 return;
+            }
+
+            if (signal.emaRapida === null) {
+                signal.emaRapida = presion;
+                signal.emaLenta = presion;
+            } else {
+                signal.emaRapida = configNodo.alphaRapida * presion + (1 - configNodo.alphaRapida) * signal.emaRapida;
+                signal.emaLenta = configNodo.alphaLenta * presion + (1 - configNodo.alphaLenta) * signal.emaLenta;
             }
 
             if (presion < configNodo.pisoEmergencia) {
@@ -210,6 +226,12 @@ module.exports = function (RED) {
                 return;
             }
 
+            var tendencia = signal.emaRapida - signal.emaLenta;
+            if (tendencia < configNodo.umbralTendencia) {
+                iniciarPumping("Tendencia descendente detectada");
+                return;
+            }
+
             estado.estadoProceso = "Sin consumo detectado";
         }
 
@@ -222,6 +244,8 @@ module.exports = function (RED) {
             signal.stableHighCount = 0;
             signal.stableLongCount = 0;
             signal.idleCount = 0;
+            signal.emaRapida = null;
+            signal.emaLenta = null;
             signal.ventanaExtendida = [];
         }
 
@@ -254,9 +278,10 @@ module.exports = function (RED) {
 
             const presionMinReciente = Math.min.apply(null, signal.ventanaExtendida);
             const meanExtendida = signal.ventanaExtendida.reduce(function(a, b) { return a + b; }, 0) / signal.ventanaExtendida.length;
+            const meanVentana = signal.ventana.reduce(function(a, b) { return a + b; }, 0) / signal.ventana.length;
             const varianza = calcularVarianza(signal.ventana);
-            const nivelAlto = presion > presionMinReciente + configNodo.umbralNivelAlto;
-            const sobrePromedio = presion > meanExtendida + 0.05;
+            const nivelAlto = meanVentana > presionMinReciente + 0.10;
+            const sobrePromedio = meanVentana > meanExtendida + 0.03;
             const estable = varianza < configNodo.varianzaEstable;
 
             if (nivelAlto && estable) {

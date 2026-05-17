@@ -192,3 +192,11 @@ Timer independiente de 2 minutos. Si no llega ningún mensaje del sensor, apaga 
 ssh pi@192.168.55.5 "grep 'ETIQUETA' /home/pi/controlbomba/logs/monitor_*.csv | awk -F',' '{print \$5}' | uniq -c"
 ```
 Resultado ideal: bloques largos de `true` y `false` alternados, sin bloques cortos (<5 lecturas) que indiquen cycling.
+
+### Gráfico ASCII de presión y estado
+```bash
+ssh pi@192.168.55.5 "cat /home/pi/controlbomba/logs/monitor_*.csv" | bash graficar.sh "" 100
+```
+- Primer argumento: etiqueta a filtrar (vacío = todo)
+- Segundo argumento: últimas N lecturas a mostrar (default 60)
+- `░` = bomba OFF, `█` = bomba ON, `>>` = transición
