@@ -23,8 +23,9 @@ module.exports = function (RED) {
             ventanaSize: 10,
             ventanaExtendidaSize: 30,
 
-            tiempoMaximoBomba: 1200000,
-            nanMaxConsecutivos: 5
+            tiempoMaximoBomba: 3600000,
+            nanMaxConsecutivos: 5,
+            timeoutComunicacion: 120000
         };
 
         let estado = {
@@ -245,9 +246,28 @@ module.exports = function (RED) {
             }
         }
 
+        // --- Watchdog de comunicación ---
+        const node = this;
+        let watchdog = null;
+
+        function resetWatchdog() {
+            if (watchdog) clearTimeout(watchdog);
+            watchdog = setTimeout(() => {
+                estado.bomba = false;
+                estado.fase = ESTADOS.IDLE;
+                estado.estadoProceso = "Comunicacion perdida; bomba apagada por seguridad";
+                node.send({ payload: { estado: estado } });
+                node.status({ fill: "red", shape: "dot", text: "Sin comunicacion" });
+            }, configNodo.timeoutComunicacion);
+        }
+
+        resetWatchdog();
+
         // --- Handler principal ---
 
         this.on('input', (msg) => {
+            resetWatchdog();
+            node.status({});
             const presion = parseFloat(msg.payload.presion);
             const reset = Boolean(msg.payload.reset);
             const automatico = Boolean(msg.payload.automatico);
@@ -303,6 +323,7 @@ module.exports = function (RED) {
         });
 
         this.on('close', () => {
+            if (watchdog) clearTimeout(watchdog);
             cerrarLog();
         });
     }
