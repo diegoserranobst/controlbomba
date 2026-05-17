@@ -13,13 +13,17 @@ module.exports = function (RED) {
 
         const configNodo = {
             umbralDelta: -0.04,
-            lecturasParaConsumo: 3,
-            deltaCatastrofico: -0.20,
+            lecturasParaConsumo: 5,
+            deltaCatastrofico: -0.40,
+            graciaPostApagado: 10,
+            pisoEmergencia: 0.5,
+            lecturasPiso: 5,
 
             tiempoMinimoBomba: 30000,
             umbralNivelAlto: 0.15,
             varianzaEstable: 0.002,
             lecturasEstables: 8,
+            lecturasEstabilidadProlongada: 30,
             ventanaSize: 10,
             ventanaExtendidaSize: 30,
 
@@ -42,7 +46,10 @@ module.exports = function (RED) {
             ventanaExtendida: [],
             declineCount: 0,
             stableHighCount: 0,
-            nanConsecutivos: 0
+            stableLongCount: 0,
+            nanConsecutivos: 0,
+            idleCount: 0,
+            pisoCount: 0
         };
 
         function calcularVarianza(arr) {
@@ -56,6 +63,7 @@ module.exports = function (RED) {
             signal.ventanaExtendida = [];
             signal.declineCount = 0;
             signal.stableHighCount = 0;
+            signal.stableLongCount = 0;
             signal.nanConsecutivos = 0;
         }
 
@@ -166,9 +174,28 @@ module.exports = function (RED) {
             estado.bomba = false;
             estado.tiempoEncendido = 0;
             signal.ventanaExtendida = [];
+            signal.idleCount++;
 
             if (delta < configNodo.deltaCatastrofico) {
                 iniciarPumping("Caída catastrófica detectada");
+                return;
+            }
+
+            if (signal.idleCount <= configNodo.graciaPostApagado) {
+                estado.estadoProceso = "Sin consumo detectado; estabilizando";
+                signal.declineCount = 0;
+                signal.pisoCount = 0;
+                return;
+            }
+
+            if (presion < configNodo.pisoEmergencia) {
+                signal.pisoCount++;
+            } else {
+                signal.pisoCount = 0;
+            }
+
+            if (signal.pisoCount >= configNodo.lecturasPiso) {
+                iniciarPumping("Sistema drenado; presion bajo minimo");
                 return;
             }
 
@@ -193,6 +220,8 @@ module.exports = function (RED) {
             estado.estadoProceso = razon;
             signal.declineCount = 0;
             signal.stableHighCount = 0;
+            signal.stableLongCount = 0;
+            signal.idleCount = 0;
             signal.ventanaExtendida = [];
         }
 
@@ -224,8 +253,10 @@ module.exports = function (RED) {
             }
 
             const presionMinReciente = Math.min.apply(null, signal.ventanaExtendida);
+            const meanExtendida = signal.ventanaExtendida.reduce(function(a, b) { return a + b; }, 0) / signal.ventanaExtendida.length;
             const varianza = calcularVarianza(signal.ventana);
             const nivelAlto = presion > presionMinReciente + configNodo.umbralNivelAlto;
+            const sobrePromedio = presion > meanExtendida + 0.05;
             const estable = varianza < configNodo.varianzaEstable;
 
             if (nivelAlto && estable) {
@@ -234,12 +265,22 @@ module.exports = function (RED) {
                 signal.stableHighCount = 0;
             }
 
-            if (signal.stableHighCount >= configNodo.lecturasEstables) {
+            if (estable && sobrePromedio) {
+                signal.stableLongCount++;
+            } else {
+                signal.stableLongCount = 0;
+            }
+
+            const apagarPorNivel = signal.stableHighCount >= configNodo.lecturasEstables;
+            const apagarPorEstabilidad = signal.stableLongCount >= configNodo.lecturasEstabilidadProlongada;
+
+            if (apagarPorNivel || apagarPorEstabilidad) {
                 estado.fase = ESTADOS.IDLE;
                 estado.bomba = false;
                 estado.tiempoEncendido = 0;
                 signal.declineCount = 0;
                 signal.stableHighCount = 0;
+                signal.stableLongCount = 0;
                 estado.estadoProceso = "Sin consumo detectado";
             } else {
                 estado.estadoProceso = "Bomba encendida; consumo activo";
