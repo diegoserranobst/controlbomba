@@ -12,28 +12,25 @@ module.exports = function (RED) {
         };
 
         const configNodo = {
-            umbralDelta: -0.04,
-            lecturasParaConsumo: 5,
-            deltaCatastrofico: -0.40,
-            graciaPostApagado: 10,
-            pisoEmergencia: 0.5,
-            lecturasPiso: 5,
+            // Encendido: presión bajo este umbral = consumo confirmado
+            umbralEncendido: 2.0,
+            lecturasEncendido: 3,
 
-            tiempoMinimoBomba: 30000,
-            umbralNivelAlto: 0.15,
-            varianzaEstable: 0.002,
+            // Apagado: mean(ventana) debe superar min reciente + este valor
+            umbralApagado: 0.10,
+            varianzaEstable: 0.003,
             lecturasEstables: 8,
             lecturasEstabilidadProlongada: 30,
             ventanaSize: 10,
             ventanaExtendidaSize: 30,
 
+            // Tiempos
+            tiempoMinimoBomba: 30000,
             tiempoMaximoBomba: 3600000,
-            nanMaxConsecutivos: 5,
-            timeoutComunicacion: 120000,
 
-            alphaRapida: 0.3,
-            alphaLenta: 0.05,
-            umbralTendencia: -0.04
+            // Seguridad
+            nanMaxConsecutivos: 5,
+            timeoutComunicacion: 120000
         };
 
         let estado = {
@@ -48,14 +45,10 @@ module.exports = function (RED) {
             ultimaPresion: NaN,
             ventana: [],
             ventanaExtendida: [],
-            declineCount: 0,
+            bajoUmbralCount: 0,
             stableHighCount: 0,
             stableLongCount: 0,
-            nanConsecutivos: 0,
-            idleCount: 0,
-            pisoCount: 0,
-            emaRapida: null,
-            emaLenta: null
+            nanConsecutivos: 0
         };
 
         function calcularVarianza(arr) {
@@ -67,7 +60,7 @@ module.exports = function (RED) {
         function resetSignal() {
             signal.ventana = [];
             signal.ventanaExtendida = [];
-            signal.declineCount = 0;
+            signal.bajoUmbralCount = 0;
             signal.stableHighCount = 0;
             signal.stableLongCount = 0;
             signal.nanConsecutivos = 0;
@@ -180,55 +173,15 @@ module.exports = function (RED) {
             estado.bomba = false;
             estado.tiempoEncendido = 0;
             signal.ventanaExtendida = [];
-            signal.idleCount++;
 
-            if (delta < configNodo.deltaCatastrofico) {
-                iniciarPumping("Caída catastrófica detectada");
-                return;
-            }
-
-            if (signal.idleCount <= configNodo.graciaPostApagado) {
-                estado.estadoProceso = "Sin consumo detectado; estabilizando";
-                signal.declineCount = 0;
-                signal.pisoCount = 0;
-                signal.emaRapida = presion;
-                signal.emaLenta = presion;
-                return;
-            }
-
-            if (signal.emaRapida === null) {
-                signal.emaRapida = presion;
-                signal.emaLenta = presion;
+            if (presion < configNodo.umbralEncendido) {
+                signal.bajoUmbralCount++;
             } else {
-                signal.emaRapida = configNodo.alphaRapida * presion + (1 - configNodo.alphaRapida) * signal.emaRapida;
-                signal.emaLenta = configNodo.alphaLenta * presion + (1 - configNodo.alphaLenta) * signal.emaLenta;
+                signal.bajoUmbralCount = 0;
             }
 
-            if (presion < configNodo.pisoEmergencia) {
-                signal.pisoCount++;
-            } else {
-                signal.pisoCount = 0;
-            }
-
-            if (signal.pisoCount >= configNodo.lecturasPiso) {
-                iniciarPumping("Sistema drenado; presion bajo minimo");
-                return;
-            }
-
-            if (delta < configNodo.umbralDelta) {
-                signal.declineCount++;
-            } else if (delta >= 0) {
-                signal.declineCount = 0;
-            }
-
-            if (signal.declineCount >= configNodo.lecturasParaConsumo) {
-                iniciarPumping("Caída sostenida detectada");
-                return;
-            }
-
-            var tendencia = signal.emaRapida - signal.emaLenta;
-            if (tendencia < configNodo.umbralTendencia) {
-                iniciarPumping("Tendencia descendente detectada");
+            if (signal.bajoUmbralCount >= configNodo.lecturasEncendido) {
+                iniciarPumping("Consumo detectado; presion bajo umbral");
                 return;
             }
 
@@ -240,12 +193,9 @@ module.exports = function (RED) {
             estado.bomba = true;
             estado.tiempoEncendido = 0;
             estado.estadoProceso = razon;
-            signal.declineCount = 0;
             signal.stableHighCount = 0;
             signal.stableLongCount = 0;
-            signal.idleCount = 0;
-            signal.emaRapida = null;
-            signal.emaLenta = null;
+            signal.bajoUmbralCount = 0;
             signal.ventanaExtendida = [];
         }
 
@@ -303,9 +253,9 @@ module.exports = function (RED) {
                 estado.fase = ESTADOS.IDLE;
                 estado.bomba = false;
                 estado.tiempoEncendido = 0;
-                signal.declineCount = 0;
                 signal.stableHighCount = 0;
                 signal.stableLongCount = 0;
+                signal.bajoUmbralCount = 0;
                 estado.estadoProceso = "Sin consumo detectado";
             } else {
                 estado.estadoProceso = "Bomba encendida; consumo activo";
