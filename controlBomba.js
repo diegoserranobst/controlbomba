@@ -16,13 +16,10 @@ module.exports = function (RED) {
             umbralEncendido: 2.0,
             lecturasEncendido: 1,
 
-            // Apagado: mean(ventana) debe superar min reciente + este valor
-            umbralApagado: 0.06,
-            varianzaEstable: 0.005,
-            lecturasEstables: 10,
-            lecturasEstabilidadProlongada: 40,
+            // Apagado: mean(ventana) sobre este umbral = sin consumo
+            umbralApagado: 2.95,
+            lecturasApagado: 10,
             ventanaSize: 10,
-            ventanaExtendidaSize: 30,
 
             // Tiempos
             tiempoMinimoBomba: 30000,
@@ -44,10 +41,8 @@ module.exports = function (RED) {
         let signal = {
             ultimaPresion: NaN,
             ventana: [],
-            ventanaExtendida: [],
             bajoUmbralCount: 0,
             stableHighCount: 0,
-            stableLongCount: 0,
             nanConsecutivos: 0
         };
 
@@ -59,10 +54,8 @@ module.exports = function (RED) {
 
         function resetSignal() {
             signal.ventana = [];
-            signal.ventanaExtendida = [];
             signal.bajoUmbralCount = 0;
             signal.stableHighCount = 0;
-            signal.stableLongCount = 0;
             signal.nanConsecutivos = 0;
         }
 
@@ -172,7 +165,6 @@ module.exports = function (RED) {
         function procesarIdle(presion, delta) {
             estado.bomba = false;
             estado.tiempoEncendido = 0;
-            signal.ventanaExtendida = [];
 
             if (presion < configNodo.umbralEncendido) {
                 signal.bajoUmbralCount++;
@@ -194,9 +186,7 @@ module.exports = function (RED) {
             estado.tiempoEncendido = 0;
             estado.estadoProceso = razon;
             signal.stableHighCount = 0;
-            signal.stableLongCount = 0;
             signal.bajoUmbralCount = 0;
-            signal.ventanaExtendida = [];
         }
 
         function procesarPumping(presion, delta) {
@@ -207,7 +197,7 @@ module.exports = function (RED) {
                 estado.fase = ESTADOS.COOLDOWN;
                 estado.bomba = false;
                 estado.excedido = true;
-                estado.estadoProceso = "Tiempo máximo excedido; apagado forzado";
+                estado.estadoProceso = "Tiempo maximo excedido; apagado forzado";
                 return;
             }
 
@@ -216,45 +206,19 @@ module.exports = function (RED) {
                 return;
             }
 
-            signal.ventanaExtendida.push(presion);
-            if (signal.ventanaExtendida.length > configNodo.ventanaExtendidaSize) {
-                signal.ventanaExtendida.shift();
-            }
-
-            if (signal.ventanaExtendida.length < configNodo.ventanaSize) {
-                estado.estadoProceso = "Bomba encendida; acumulando datos";
-                return;
-            }
-
-            const presionMinReciente = Math.min.apply(null, signal.ventanaExtendida);
-            const meanExtendida = signal.ventanaExtendida.reduce(function(a, b) { return a + b; }, 0) / signal.ventanaExtendida.length;
             const meanVentana = signal.ventana.reduce(function(a, b) { return a + b; }, 0) / signal.ventana.length;
-            const varianza = calcularVarianza(signal.ventana);
-            const nivelAlto = meanVentana > presionMinReciente + 0.10;
-            const sobrePromedio = meanVentana > meanExtendida + 0.03;
-            const estable = varianza < configNodo.varianzaEstable;
 
-            if (nivelAlto && estable) {
+            if (meanVentana > configNodo.umbralApagado) {
                 signal.stableHighCount++;
             } else {
                 signal.stableHighCount = 0;
             }
 
-            if (estable && sobrePromedio) {
-                signal.stableLongCount++;
-            } else {
-                signal.stableLongCount = 0;
-            }
-
-            const apagarPorNivel = signal.stableHighCount >= configNodo.lecturasEstables;
-            const apagarPorEstabilidad = signal.stableLongCount >= configNodo.lecturasEstabilidadProlongada;
-
-            if (apagarPorNivel || apagarPorEstabilidad) {
+            if (signal.stableHighCount >= configNodo.lecturasApagado) {
                 estado.fase = ESTADOS.IDLE;
                 estado.bomba = false;
                 estado.tiempoEncendido = 0;
                 signal.stableHighCount = 0;
-                signal.stableLongCount = 0;
                 signal.bajoUmbralCount = 0;
                 estado.estadoProceso = "Sin consumo detectado";
             } else {
