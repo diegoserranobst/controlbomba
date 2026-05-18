@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ssh pi@192.168.55.5 \"grep 'debug_estabilidad_v8' /home/pi/controlbomba/logs/monitor_2026-05-17.csv | tail -100 | awk -F',' '{print \\\\$5}' | sort | uniq -c\")",
+      "Bash(ssh pi@192.168.55.5 \"grep 'debug_estabilidad_v8' /home/pi/controlbomba/logs/monitor_2026-05-17.csv | tail -5\")",
+      "Bash(ssh pi@192.168.55.5 \"grep 'debug_estabilidad_v8' /home/pi/controlbomba/logs/monitor_2026-05-17.csv | awk -F',' '{print \\\\$5}'\")"
+    ]
+  }
+}
