@@ -17,10 +17,10 @@ module.exports = function (RED) {
             lecturasEncendido: 1,
 
             // Apagado: mean(ventana) debe superar min reciente + este valor
-            umbralApagado: 0.10,
-            varianzaEstable: 0.003,
-            lecturasEstables: 8,
-            lecturasEstabilidadProlongada: 30,
+            umbralApagado: 0.06,
+            varianzaEstable: 0.005,
+            lecturasEstables: 10,
+            lecturasEstabilidadProlongada: 40,
             ventanaSize: 10,
             ventanaExtendidaSize: 30,
 
