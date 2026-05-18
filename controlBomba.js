@@ -13,7 +13,7 @@ module.exports = function (RED) {
 
         const configNodo = {
             // Encendido: presión bajo este umbral = consumo confirmado
-            umbralEncendido: 2.0,
+            umbralEncendido: 2.3,
             lecturasEncendido: 1,
 
             // Apagado: mean(ventana) sobre este umbral = sin consumo
